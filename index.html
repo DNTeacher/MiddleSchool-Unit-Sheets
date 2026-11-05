@@ -169,11 +169,11 @@ dialog legend{font-weight:700;font-size:13px;padding:0 4px}
 .tr{font-size:.84em;color:#5a5d66;line-height:1.4}
 .tr.write{border-bottom:.2mm solid #999;height:6mm}
 .gloss{font-size:.84em;color:#5a5d66;margin-left:.5em}
-.bank{border:.25mm dashed #7a7a7a;border-radius:1mm;padding:.6mm 2.2mm;margin:1.2mm 0 .4mm;font-size:.86em;line-height:1.6;background:#fff}
+.bank{border:.25mm dashed #7a7a7a;border-radius:1mm;padding:.5mm 2mm;margin:1mm 0 .3mm;font-size:.82em;line-height:1.5;background:#fff}
 .bank b{margin-right:1.5mm;color:var(--p-brand)}
 .bank .sep{color:#888;margin:0 1.2mm}
 .star{color:var(--p-brand);font-weight:700;margin-right:.2em}
-.v-blank .lh-x:has(.blank){line-height:1.85}
+.v-blank .lh-x:has(.blank){line-height:1.8}
 
 /* 소제목 */
 .sec-h{display:flex;align-items:center;gap:1.8mm;font-weight:700;color:var(--p-brand);border-bottom:.45mm solid var(--p-brand);padding:2.6mm 0 .5mm;margin-bottom:.8mm;font-size:1.02em}
@@ -281,6 +281,7 @@ dialog legend{font-weight:700;font-size:13px;padding:0 4px}
           <input type="radio" name="version" id="vs-blank" value="blank"><label for="vs-blank">빈칸본</label>
         </div>
         <span class="ctl"><label for="font-size">글자</label><select id="font-size"></select></span>
+        <span class="ctl" id="cols-ctl" hidden><label for="cols">배치</label><select id="cols"><option value="1">1단</option><option value="2">2단</option></select></span>
         <button type="button" class="btn" id="btn-fit">1면에 맞추기</button>
         <span class="spacer"></span>
         <span class="pages-info" id="pages-info" aria-live="polite"></span>
@@ -369,7 +370,7 @@ const str=v=>typeof v==='string'?v:'';
 const arr=a=>Array.isArray(a)?a:[];
 
 /* ---------- 데이터 ---------- */
-const defaultLayout=()=>({vocab:{fs:10},conv:{fs:9},grammar:{fs:10},reading:{fs:9.5}});
+const defaultLayout=()=>({vocab:{fs:10},conv:{fs:9},grammar:{fs:10},reading:{fs:9.5,cols:1}});
 function emptyUnit(name){
   return {id:uid(),name:name||'새 단원',v:DATA_VERSION,updated:Date.now(),
     meta:{lesson:'',title:'',grade:'',book:'',exam:''},
@@ -383,6 +384,7 @@ function normUnit(u){
   const m=u.meta||{};
   const lay=defaultLayout();
   if(u.layout) for(const k of Object.keys(lay)){ const f=Number(u.layout[k]&&u.layout[k].fs); if(FONT_SIZES.includes(f)) lay[k].fs=f; }
+  if(u.layout&&u.layout.reading&&Number(u.layout.reading.cols)===2) lay.reading.cols=2;
   const ck=u.checked||{};
   return {id:str(u.id)||d.id,name:str(u.name).trim()||'이름 없는 단원',v:DATA_VERSION,updated:Number(u.updated)||Date.now(),
     meta:{lesson:str(m.lesson),title:str(m.title),grade:str(m.grade),book:str(m.book),exam:str(m.exam)},
@@ -527,7 +529,7 @@ function blankHtml(ans,num,hint,tail=''){
     const parts=a.split(/\s+/).map(w=>{ const c=Array.from(w); const rest=c.slice(1).join(''); return esc(c[0])+`<span class="ul" style="width:${Math.max(.9,textWidthEm(rest)*1.1+.4).toFixed(2)}em"></span>`; }).join(' ');
     return `<span class="blank">${numH}${parts}${esc(tail)}</span>`;
   }
-  const w=Math.min(26,Math.max(3.6,textWidthEm(a)*1.12+1.4));
+  const w=Math.min(16,Math.max(3.4,textWidthEm(a)*0.95+1.1));
   return `<span class="blank">${numH}<span class="ul" style="width:${w.toFixed(2)}em"></span>${esc(tail)}</span>`;
 }
 const KO_RE=/([~(\[]*[ㄱ-힝][^A-Za-z=↔→|]*)/;
@@ -699,7 +701,7 @@ function buildGrammar(u,ctx){
 function buildReading(u,ctx){
   const blocks=[]; let sn=0, secN=0;
   const r=u.reading;
-  if(r.title.trim()) blocks.push({html:`<div class="r-title"><b>${rich(r.title,ctx,{noKey:true})}</b>${r.titleKo.trim()?`<span class="ko">${esc(r.titleKo)}</span>`:''}</div>`,keep:true});
+  if(r.title.trim()) blocks.push({html:`<div class="r-title"><b>${rich(r.title,ctx,{noKey:true})}</b>${r.titleKo.trim()?`<span class="ko">${esc(r.titleKo)}</span>`:''}</div>`,keep:true,span:true});
   const ls=lines(r.text,{star:true,adv:false});
   let pending=null;
   const flushSec=()=>{ if(pending){ pending.block.html=pending.head+bankHtml(ctx,pending.from,'r'+pending.n); pending=null; } };
@@ -722,11 +724,12 @@ function buildReading(u,ctx){
     const cells=fl.map(l=>{ const out=[]; let rest=l.s; for(;;){ const [a,b]=splitTop(rest,'|'); out.push(a.trim()); if(b==null) break; rest=b; } return out; });
     const head=cells[0], body=cells.slice(1);
     const table=`<table><thead><tr>${head.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${body.map(row=>`<tr>${head.map((_,k)=>`<td>${rich(row[k]||'',ctx)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
-    blocks.push({html:secH('본문 흐름 한눈에 보기','≡')+bankHtml(ctx,from,'flow'),keep:true});
-    blocks.push({html:`<div class="flow">${table}</div>`});
+    const wide=u.layout.reading.cols!==2;
+    blocks.push({html:secH('본문 흐름 한눈에 보기','≡')+bankHtml(ctx,from,'flow'),keep:true,span:wide});
+    blocks.push({html:`<div class="flow">${table}</div>`,span:wide});
   }
   const instr=ctx.version==='summary'?'★ 문장은 서술형에 자주 나오는 문장이에요. 파란 글씨 설명과 함께 읽고, 형광펜 표현을 외우세요.':blankInstr(ctx);
-  return {blocks,cols:1,instr};
+  return {blocks,cols:u.layout.reading.cols===2?2:1,instr};
 }
 const BUILDERS={vocab:buildVocab,conv:buildConv,grammar:buildGrammar,reading:buildReading};
 function unitTitle(u){ const m=u.meta; return [m.lesson,m.title].filter(x=>x.trim()).join('. ')||u.name; }
@@ -824,7 +827,7 @@ function paginate(sh,fs){
       const avail=contentH-y;
       const all=fill(rest,avail,2);
       if(all.placed===rest.length){
-        let lo=Math.max(...rest.map(x=>bh[x])),hi=avail,best=all;
+        let lo=Math.max(...rest.map((x,p)=>keepNeed(x,rest,p))),hi=avail,best=all;
         for(let it=0;it<18&&hi-lo>1;it++){ const mid=(lo+hi)/2; const f=fill(rest,mid,2); if(f.placed===rest.length){ hi=mid; best=f; } else lo=mid; }
         page.rows.push({span:false,cols:best.cols}); y+=Math.max(...best.hs); rest=[]; break;
       }
@@ -863,10 +866,16 @@ function compose(u,sheet,level,version,fsOverride){
 }
 
 /* ---------- 화면: 탭·도구 ---------- */
+function hasContent(u,id){
+  if(id==='vocab') return u.vocab.sections.some(x=>x.text.trim());
+  if(id==='conv') return u.conv.functions.some(f=>f.title.trim()||f.model.trim()||f.ask.trim()||f.answer.trim())||u.conv.dialogs.some(d=>d.title.trim()||d.lines.trim())||!!u.conv.points.trim();
+  if(id==='grammar') return u.grammar.points.some(p=>p.title.trim()||p.parts.length);
+  return !!(u.reading.text.trim()||u.reading.flow.trim()||u.reading.title.trim());
+}
 function renderTabs(){
   const u=cur();
   $('#tabs').innerHTML=SHEETS.map(([id,ko])=>{
-    const st=u?(u.checked[id]?'✓ 확인함':'확인 전'):'';
+    const st=u?(!hasContent(u,id)?'내용 없음':u.checked[id]?'✓ 확인함':'확인 전'):'';
     return `<button type="button" class="tab" role="tab" id="tab-${id}" data-sheet="${id}" aria-selected="${store.ui.sheet===id}" aria-controls="editor" tabindex="${store.ui.sheet===id?0:-1}">${ko}<span class="st">${st}</span></button>`;
   }).join('');
 }
@@ -880,6 +889,8 @@ function syncToolbar(){
   $('#lv-'+ui.level).checked=true; $('#vs-'+ui.version).checked=true;
   const fs=u?u.layout[ui.sheet].fs:10;
   $('#font-size').innerHTML=FONT_SIZES.map(s=>`<option value="${s}"${s===fs?' selected':''}>${s}pt</option>`).join('');
+  $('#cols-ctl').hidden=ui.sheet!=='reading';
+  $('#cols').value=String(u?u.layout.reading.cols:1);
   const o=store.settings.levels[ui.level];
   $('#o-bank').checked=o.bank; $('#o-hint').checked=o.hint; $('#o-notes').checked=o.notes; $('#o-trans').value=o.trans;
   $('#o-levelLabel').value=store.settings.levelLabel;
@@ -1083,6 +1094,7 @@ function bind(){
   $$('input[name="level"]').forEach(r=>r.addEventListener('change',()=>{ store.ui.level=r.value; scheduleSave(); syncToolbar(); renderPreview(); }));
   $$('input[name="version"]').forEach(r=>r.addEventListener('change',()=>{ store.ui.version=r.value; scheduleSave(); renderPreview(); }));
   $('#font-size').addEventListener('change',e=>{ const u=cur(); if(!u) return; u.layout[store.ui.sheet].fs=Number(e.target.value); touched(); renderPreview(); });
+  $('#cols').addEventListener('change',e=>{ const u=cur(); if(!u) return; u.layout.reading.cols=Number(e.target.value)===2?2:1; touched(); renderPreview(); });
   $('#btn-fit').addEventListener('click',()=>{
     const u=cur(), ui=store.ui; if(!u){ toast('단원이 없어요.'); return; }
     const r=fitSize(u,ui.sheet);
