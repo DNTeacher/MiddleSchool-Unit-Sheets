@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>단원 정리본 만들기</title>
+<title>시험에 다나와</title>
 <style>
 /* 화면(교사 작업 화면) 토큰 */
 :root{
@@ -29,7 +29,8 @@ button,input,select,textarea{font:inherit;color:inherit}
 .app{display:flex;flex-direction:column;height:100%}
 .topbar{background:var(--panel);border-bottom:1px solid var(--line);padding-block:10px 0;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 .top-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
-.brand{font-weight:700;font-size:16px;margin-right:6px;white-space:nowrap}
+.brand{font-weight:700;font-size:17px;margin-right:6px;white-space:nowrap;letter-spacing:-.01em}
+.brand em{font-style:normal;color:var(--accent)}
 .unit-pick{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .unit-pick select{max-width:min(320px,70vw)}
 .spacer{flex:1}
@@ -135,6 +136,10 @@ dialog legend{font-weight:700;font-size:13px;padding:0 4px}
 .ph-wrap{padding-bottom:2.6mm}
 .ph-top{display:flex;justify-content:space-between;gap:4mm;align-items:baseline;font-size:.8em;color:#4a4f5c;border-bottom:.3mm solid var(--p-ink);padding-bottom:.8mm}
 .ph-top b{color:var(--p-ink)}
+.ph-left{display:flex;align-items:baseline;gap:2mm;min-width:0}
+.ph-brand{font-weight:700;color:var(--p-ink);white-space:nowrap;padding-right:2mm;border-right:.3mm solid #b9b5ad;letter-spacing:-.01em}
+.ph-brand em,.pfoot em{font-style:normal;color:var(--p-brand)}
+.pfoot b{color:#333}
 .ph-main{display:flex;justify-content:space-between;align-items:flex-end;gap:4mm;padding-top:1.6mm}
 .ph-page{display:flex;align-items:baseline;gap:2.5mm;line-height:1.1}
 .ph-en{font-size:2.15em;font-weight:700;letter-spacing:.03em;color:var(--p-brand)}
@@ -247,7 +252,7 @@ dialog legend{font-weight:700;font-size:13px;padding:0 4px}
 <div class="app" id="app">
   <header class="topbar">
     <div class="top-row">
-      <span class="brand">단원 정리본 만들기</span>
+      <span class="brand">시험에 <em>다나와</em></span>
       <div class="unit-pick">
         <label for="unit-select" class="sr-only">단원 고르기</label>
         <select id="unit-select"></select>
@@ -348,6 +353,7 @@ const $=(s,r=document)=>r.querySelector(s);
 const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const LS_KEY='unit-sheets.v2', OLD_KEYS=['unit-sheets.v1'], APP_ID='unit-sheets', DATA_VERSION=2;
+const BRAND='시험에 다나와', BRAND_HTML='<span class="ph-brand">시험에 <em>다나와</em></span>';
 const SHEETS=[['vocab','단어','VOCABULARY'],['conv','대화문','CONVERSATION'],['grammar','문법','GRAMMAR'],['reading','본문','READING']];
 const SHEET_KO=Object.fromEntries(SHEETS.map(s=>[s[0],s[1]]));
 const SHEET_EN=Object.fromEntries(SHEETS.map(s=>[s[0],s[2]]));
@@ -733,9 +739,9 @@ function buildSheet(u,sheet,level,version){
   const side=[m.grade,m.book,m.exam].filter(x=>x.trim()).map(esc).join(' · ');
   const rounds=version==='summary'?'<span>공부한 날 ☐ ____ ☐ ____ ☐ ____</span>':'';
   const legend=sh.legend?`<span class="ph-legend">${['S','V','O','C'].map(r=>`<span class="role r-${r}">${ROLE_KO[r]}</span>`).join('')}</span>`:'';
-  sh.first=`<div class="ph-wrap"><div class="ph-top"><b>${esc(unitTitle(u))}</b><span>${side}</span></div><div class="ph-main"><div class="ph-page"><span class="ph-en">${SHEET_EN[sheet]}</span><span class="ph-ko">${SHEET_KO[sheet]} ${version==='summary'?'정리':'빈칸 채우기'}</span></div><div class="ph-side"><span class="ph-tag">${esc(tag)}</span><span class="ph-name">이름<span></span></span></div></div><div class="ph-instr"><span>${esc(sh.instr)}</span>${legend}${rounds}</div></div>`;
-  sh.cont=`<div class="ph-cont"><span>${esc(unitTitle(u))} · ${SHEET_EN[sheet]} ${SHEET_KO[sheet]} (계속)</span><span>${esc(tag)}</span></div>`;
-  sh.foot=`${esc(unitTitle(u))} · ${esc(tag)}`;
+  sh.first=`<div class="ph-wrap"><div class="ph-top"><span class="ph-left">${BRAND_HTML}<b>${esc(unitTitle(u))}</b></span><span>${side}</span></div><div class="ph-main"><div class="ph-page"><span class="ph-en">${SHEET_EN[sheet]}</span><span class="ph-ko">${SHEET_KO[sheet]} ${version==='summary'?'정리':'빈칸 채우기'}</span></div><div class="ph-side"><span class="ph-tag">${esc(tag)}</span><span class="ph-name">이름<span></span></span></div></div><div class="ph-instr"><span>${esc(sh.instr)}</span>${legend}${rounds}</div></div>`;
+  sh.cont=`<div class="ph-cont"><span class="ph-left">${BRAND_HTML}<span>${esc(unitTitle(u))} · ${SHEET_EN[sheet]} ${SHEET_KO[sheet]} (계속)</span></span><span>${esc(tag)}</span></div>`;
+  sh.foot=`<b>시험에 <em>다나와</em></b> · ${esc(unitTitle(u))} · ${esc(tag)}`;
   sh.vclass=version==='blank'?'v-blank':'v-summary';
   sh.empty=!sh.blocks.length;
   return sh;
@@ -1110,7 +1116,7 @@ function bind(){
     if(!store.units.length){ toast('저장할 단원이 없어요.'); return; }
     const d=new Date(), ds=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     const blob=new Blob([JSON.stringify({app:APP_ID,version:DATA_VERSION,exported:d.toISOString(),units:store.units,settings:store.settings},null,1)],{type:'application/json'});
-    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`정리본-백업-${ds}.json`;
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`시험에다나와-백업-${ds}.json`;
     document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1000);
     toast(`단원 ${store.units.length}개를 백업 파일로 저장했어요.`);
   });
