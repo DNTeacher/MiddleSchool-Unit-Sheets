@@ -137,6 +137,7 @@ dialog legend{font-weight:700;font-size:13px;padding:0 4px}
 .ph-top{display:flex;justify-content:space-between;gap:4mm;align-items:baseline;font-size:.8em;color:#4a4f5c;border-bottom:.3mm solid var(--p-ink);padding-bottom:.8mm}
 .ph-top b{color:var(--p-ink)}
 .ph-left{display:flex;align-items:baseline;gap:2mm;min-width:0}
+.ph-hd{font-weight:700;color:var(--p-ink);white-space:nowrap;padding-right:2mm;border-right:.3mm solid #b9b5ad;letter-spacing:.01em}
 .ph-brand{font-weight:700;color:var(--p-ink);white-space:nowrap;padding-right:2mm;border-right:.3mm solid #b9b5ad;letter-spacing:-.01em}
 .ph-brand em,.pfoot em{font-style:normal;color:var(--p-brand)}
 .pfoot b{color:#333}
@@ -297,10 +298,17 @@ dialog legend{font-weight:700;font-size:13px;padding:0 4px}
             <span class="ctl"><input type="checkbox" id="o-notes"><label for="o-notes">파란 설명 글씨 보이기</label></span>
             <span class="ctl"><label for="o-trans">해석</label>
               <select id="o-trans"><option value="show">보여 주기</option><option value="hide">숨기기</option><option value="write">쓰기 칸</option></select></span>
-            <span class="ctl"><label for="o-levelLabel">인쇄물 수준 표시</label>
-              <select id="o-levelLabel"><option value="kr">기본형 / 심화형</option><option value="ab">A형 / B형</option><option value="none">표시 안 함</option></select></span>
           </div>
           <p class="opt-note" id="opt-note"></p>
+        </details>
+        <details id="print-opts">
+          <summary>인쇄물 설정</summary>
+          <div class="opt-grid">
+            <span class="ctl"><label for="o-header">머리글 문구</label><input type="text" id="o-header" maxlength="40" placeholder="비우면 넣지 않아요" autocomplete="off"></span>
+            <span class="ctl"><label for="o-levelLabel">수준 표시</label>
+              <select id="o-levelLabel"><option value="kr">기본형 / 심화형</option><option value="ab">A형 / B형</option><option value="none">표시 안 함</option></select></span>
+          </div>
+          <p class="opt-note">모든 단원·모든 장의 인쇄물 맨 위 줄에 똑같이 들어가요. 머리글 문구를 비우면 넣지 않아요.</p>
         </details>
       </div>
       <p class="print-tip">컬러 인쇄: 인쇄 창에서 용지 A4, 배율 기본(100%), 컬러를 고르고 ‘배경 그래픽’을 켜세요. 켜지 않으면 형광펜과 색 칸이 빠져요.</p>
@@ -355,6 +363,7 @@ const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const LS_KEY='unit-sheets.v2', OLD_KEYS=['unit-sheets.v1'], APP_ID='unit-sheets', DATA_VERSION=2;
 const BRAND='시험에 다나와', BRAND_HTML='<span class="ph-brand">시험에 <em>다나와</em></span>';
+const HEADER_DEFAULT='by TR.DN'; /* 11-06 선생님: 그럼Grammar처럼 머리글 문구 */
 const SHEETS=[['vocab','단어','VOCABULARY'],['conv','대화문','CONVERSATION'],['grammar','문법','GRAMMAR'],['reading','본문','READING']];
 const SHEET_KO=Object.fromEntries(SHEETS.map(s=>[s[0],s[1]]));
 const SHEET_EN=Object.fromEntries(SHEETS.map(s=>[s[0],s[2]]));
@@ -398,12 +407,13 @@ function normUnit(u){
     checked:{vocab:!!ck.vocab,conv:!!ck.conv,grammar:!!ck.grammar,reading:!!ck.reading},layout:lay};
 }
 function normSettings(s){
-  const out={levels:JSON.parse(JSON.stringify(DEFAULT_LEVELS)),levelLabel:'kr'};
+  const out={levels:JSON.parse(JSON.stringify(DEFAULT_LEVELS)),levelLabel:'kr',header:HEADER_DEFAULT};
   if(s&&typeof s==='object'){
     for(const lv of ['basic','adv']){ const x=s.levels&&s.levels[lv]; if(!x) continue;
       if(['show','hide','write'].includes(x.trans)) out.levels[lv].trans=x.trans;
       for(const k of ['bank','hint','notes']) if(typeof x[k]==='boolean') out.levels[lv][k]=x[k]; }
     if(LEVEL_LABELS[s.levelLabel]) out.levelLabel=s.levelLabel;
+    if(typeof s.header==='string') out.header=s.header.slice(0,40);
   }
   return out;
 }
@@ -732,6 +742,7 @@ function buildReading(u,ctx){
   return {blocks,cols:u.layout.reading.cols===2?2:1,instr};
 }
 const BUILDERS={vocab:buildVocab,conv:buildConv,grammar:buildGrammar,reading:buildReading};
+function headHtml(){ const h=(store.settings.header||'').trim(); return (h?`<span class="ph-hd">${esc(h)}</span>`:'')+BRAND_HTML; }
 function unitTitle(u){ const m=u.meta; return [m.lesson,m.title].filter(x=>x.trim()).join('. ')||u.name; }
 function buildSheet(u,sheet,level,version){
   const ctx={level,version,opt:store.settings.levels[level],n:0,answers:[],seed:u.id+sheet+level,showNotes:version==='summary'?true:store.settings.levels[level].notes};
@@ -742,8 +753,8 @@ function buildSheet(u,sheet,level,version){
   const side=[m.grade,m.book,m.exam].filter(x=>x.trim()).map(esc).join(' · ');
   const rounds=version==='summary'?'<span>공부한 날 ☐ ____ ☐ ____ ☐ ____</span>':'';
   const legend=sh.legend?`<span class="ph-legend">${['S','V','O','C'].map(r=>`<span class="role r-${r}">${ROLE_KO[r]}</span>`).join('')}</span>`:'';
-  sh.first=`<div class="ph-wrap"><div class="ph-top"><span class="ph-left">${BRAND_HTML}<b>${esc(unitTitle(u))}</b></span><span>${side}</span></div><div class="ph-main"><div class="ph-page"><span class="ph-en">${SHEET_EN[sheet]}</span><span class="ph-ko">${SHEET_KO[sheet]} ${version==='summary'?'정리':'빈칸 채우기'}</span></div><div class="ph-side"><span class="ph-tag">${esc(tag)}</span><span class="ph-name">이름<span></span></span></div></div><div class="ph-instr"><span>${esc(sh.instr)}</span>${legend}${rounds}</div></div>`;
-  sh.cont=`<div class="ph-cont"><span class="ph-left">${BRAND_HTML}<span>${esc(unitTitle(u))} · ${SHEET_EN[sheet]} ${SHEET_KO[sheet]} (계속)</span></span><span>${esc(tag)}</span></div>`;
+  sh.first=`<div class="ph-wrap"><div class="ph-top"><span class="ph-left">${headHtml()}<b>${esc(unitTitle(u))}</b></span><span>${side}</span></div><div class="ph-main"><div class="ph-page"><span class="ph-en">${SHEET_EN[sheet]}</span><span class="ph-ko">${SHEET_KO[sheet]} ${version==='summary'?'정리':'빈칸 채우기'}</span></div><div class="ph-side"><span class="ph-tag">${esc(tag)}</span><span class="ph-name">이름<span></span></span></div></div><div class="ph-instr"><span>${esc(sh.instr)}</span>${legend}${rounds}</div></div>`;
+  sh.cont=`<div class="ph-cont"><span class="ph-left">${headHtml()}<span>${esc(unitTitle(u))} · ${SHEET_EN[sheet]} ${SHEET_KO[sheet]} (계속)</span></span><span>${esc(tag)}</span></div>`;
   sh.foot=`<b>시험에 <em>다나와</em></b> · ${esc(unitTitle(u))} · ${esc(tag)}`;
   sh.vclass=version==='blank'?'v-blank':'v-summary';
   sh.empty=!sh.blocks.length;
@@ -894,9 +905,10 @@ function syncToolbar(){
   const o=store.settings.levels[ui.level];
   $('#o-bank').checked=o.bank; $('#o-hint').checked=o.hint; $('#o-notes').checked=o.notes; $('#o-trans').value=o.trans;
   $('#o-levelLabel').value=store.settings.levelLabel;
+  if(document.activeElement!==$('#o-header')) $('#o-header').value=store.settings.header;
   const lv=LEVEL_LABELS.kr[ui.level];
   $('#opts-summary').textContent=`빈칸본 설정 · ${lv}`;
-  $('#opt-note').textContent=`${lv} 빈칸본에 적용되고 모든 단원에 똑같이 쓰여요. 정리본은 바뀌지 않아요 (인쇄물 수준 표시만 함께 바뀌어요).`;
+  $('#opt-note').textContent=`${lv} 빈칸본에 적용되고 모든 단원에 똑같이 쓰여요. 정리본은 바뀌지 않아요.`;
 }
 
 /* ---------- 화면: 입력 ---------- */
@@ -1105,6 +1117,7 @@ function bind(){
   });
   const optChange=()=>{ const o=store.settings.levels[store.ui.level]; o.bank=$('#o-bank').checked; o.hint=$('#o-hint').checked; o.notes=$('#o-notes').checked; o.trans=$('#o-trans').value; store.settings.levelLabel=$('#o-levelLabel').value; scheduleSave(); renderPreview(); };
   ['#o-bank','#o-hint','#o-notes','#o-trans','#o-levelLabel'].forEach(s=>$(s).addEventListener('change',optChange));
+  $('#o-header').addEventListener('input',e=>{ store.settings.header=e.target.value.slice(0,40); scheduleSave(); scheduleRender(); });
   $('#btn-print').addEventListener('click',()=>{
     const u=cur(); if(!u){ toast('단원이 없어요.'); return; }
     const c=compose(u,store.ui.sheet,store.ui.level,store.ui.version);
